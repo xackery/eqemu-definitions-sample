@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -93,6 +94,16 @@ func run() error {
 		return fmt.Errorf("unmarshal: %w", err)
 	}
 
+	sort.Slice(response.Data.LuaApi.LuaEvents, func(i, j int) bool {
+		return response.Data.LuaApi.LuaEvents[i].EventName < response.Data.LuaApi.LuaEvents[j].EventName
+	})
+
+	for _, constant := range response.Data.LuaApi.LuaConstants {
+		sort.Slice(constant, func(i, j int) bool {
+			return constant[i].Constant < constant[j].Constant
+		})
+	}
+
 	//os.WriteFile("response.json", body, 0644)
 
 	err = writeEvents(response)
@@ -154,26 +165,109 @@ func writeMethods(resp ResponseWrapper) error {
 	defer w.Close()
 
 	w.WriteString("function foo()\n")
+	w.WriteString(`	local numValue = 0
+	local stringValue = ""
+	local boolValue = false
+	local tableValue = {}
+	local functionValue = function() end
+	local mobValue = {} ---@type Mob
+	local clientValue = {} ---@type Client
+	local npcValue = {} ---@type NPC
+	local itemValue = {} ---@type Item
+	local itemInstValue = {} ---@type ItemInst
+	local encounterValue = {} ---@type Encounter
+	local packetValue = {} ---@type Packet
+	local objectValue = {} ---@type object
+`)
+
+	valueTypes := map[string]string{
+		"int":       "numValue",
+		"uint32":    "numValue",
+		"int64":     "numValue",
+		"uint16":    "numValue",
+		"int16":     "numValue",
+		"uint8":     "numValue",
+		"uint64":    "numValue",
+		"double":    "numValue",
+		"uint32_t":  "numValue",
+		"int32":     "numValue",
+		"Packet":    "packetValue",
+		"Encounter": "encounterValue",
+		"Item":      "itemValue",
+		"ItemInst":  "itemInstValue",
+		"float":     "numValue",
+		"Mob":       "mobValue",
+		"Client":    "clientValue",
+		"object&":   "objectValue",
+		"NPC":       "npcValue",
+		"std":       "stringValue",
+		"bool":      "boolValue",
+		"string":    "stringValue",
+		"object":    "tableValue",
+		"function":  "functionValue",
+	}
 
 	lastType := ""
-	for _, method := range resp.Data.LuaApi.LuaMethods {
+
+	keys := make([]string, 0, len(resp.Data.LuaApi.LuaMethods))
+	for k := range resp.Data.LuaApi.LuaMethods {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		method := resp.Data.LuaApi.LuaMethods[key]
 		for _, m := range method {
-			if m.Method == "operator" {
-				continue
-			}
+
 			lowerType := strings.ToLower(m.MethodType)
 			if lastType != m.MethodType {
 				if lastType != m.MethodType {
+
 					w.WriteString(fmt.Sprintf("\tlocal %s = %s() ---@type %s\n", lowerType, m.MethodType, m.MethodType))
 				}
 				lastType = m.MethodType
 			}
 
-			out := fmt.Sprintf("\t%s:%s()\n", lowerType, m.Method)
-			_, err = w.WriteString(out)
-			if err != nil {
-				return fmt.Errorf("write %s: %w", m.Method, err)
+			sep := ":"
+			if lowerType == "eq" {
+				sep = "."
 			}
+
+			if m.Method == "operator=" {
+				continue
+			}
+
+			w.WriteString(fmt.Sprintf("\t%s%s%s(", lowerType, sep, m.Method))
+			for i, param := range m.Params {
+				if i > 0 {
+					w.WriteString(", ")
+				}
+				arg := param
+				if strings.Contains(param, " ") {
+					p := strings.Split(param, " ")
+
+					val, ok := valueTypes[p[0]]
+					if !ok {
+						if p[0] == "const" {
+							val, ok = valueTypes[p[1]]
+							if !ok {
+								val = fmt.Sprintf("unkValue (%s)", p[1])
+							}
+						} else {
+							val = fmt.Sprintf("unkValue (%s)", p[0])
+						}
+					}
+					arg = val
+				} else {
+					arg = "stringValue"
+				}
+				w.WriteString(arg)
+			}
+			paramComment := ""
+			if len(m.Params) > 0 {
+				paramComment = fmt.Sprintf(" -- %s", strings.Join(m.Params, ", "))
+			}
+			w.WriteString(fmt.Sprintf(")%s\n", paramComment))
 		}
 	}
 	w.WriteString("end\n")
@@ -193,6 +287,12 @@ func writeConstants(resp ResponseWrapper) error {
 
 	for name, constant := range resp.Data.LuaApi.LuaConstants {
 		for _, c := range constant {
+
+			// if c.Constant contains a number as first character
+			if c.Constant[0] >= '0' && c.Constant[0] <= '9' {
+				w.WriteString(fmt.Sprintf("\teq.debug(%s['%s'])\n", name, c.Constant))
+				continue
+			}
 
 			out := fmt.Sprintf("\teq.debug(%s.%s)\n", name, c.Constant)
 			_, err = w.WriteString(out)
