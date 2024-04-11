@@ -236,7 +236,18 @@ func writeMethods(resp ResponseWrapper) error {
 				continue
 			}
 
-			w.WriteString(fmt.Sprintf("\t%s%s%s(", lowerType, sep, m.Method))
+			w.WriteString("\t")
+			if m.ReturnType != "void" {
+				if m.ReturnType == "string" {
+					w.WriteString("eq.debug(\"%s\", ")
+				} else if (m.ReturnType == "bool") {
+					w.WriteString("eq.debug(\"%s\", tostring(")
+				} else {
+					w.WriteString("eq.debug(\"%d\", ")
+				}
+			}
+
+			w.WriteString(fmt.Sprintf("%s%s%s(", lowerType, sep, m.Method))
 			for i, param := range m.Params {
 				if i > 0 {
 					w.WriteString(", ")
@@ -266,7 +277,15 @@ func writeMethods(resp ResponseWrapper) error {
 			if len(m.Params) > 0 {
 				paramComment = fmt.Sprintf(" -- %s", strings.Join(m.Params, ", "))
 			}
-			w.WriteString(fmt.Sprintf(")%s\n", paramComment))
+
+			if m.ReturnType == "void" {
+				w.WriteString(fmt.Sprintf(")%s\n", paramComment))
+				continue
+			} else if (m.ReturnType == "bool") {
+				w.WriteString(fmt.Sprintf(")))%s\n", paramComment))
+				continue
+			}
+			w.WriteString(fmt.Sprintf("))%s\n", paramComment))
 		}
 	}
 	w.WriteString("end\n")
