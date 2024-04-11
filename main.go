@@ -126,16 +126,26 @@ func run() error {
 }
 
 func writeEvents(resp ResponseWrapper) error {
-	// Write the events to a file
-	w, err := os.Create("lua/events.lua")
-	if err != nil {
-		return fmt.Errorf("create: %w", err)
-	}
+	var err error
+	events := make(map[string]*os.File)
+	eventTypes := []string{"player", "npc", "item", "encounter", "bot", "spell"}
 
-	defer w.Close()
+	for _, eventType := range eventTypes {
+		fw, err := os.Create(fmt.Sprintf("lua/event_%s.lua", eventType))
+		if err != nil {
+			return fmt.Errorf("create: %w", err)
+		}
+		defer fw.Close()
+		events[eventType] = fw
+	}
 
 	for _, event := range resp.Data.LuaApi.LuaEvents {
 		eventLower := strings.ToLower(event.EventName)
+
+		w, ok := events[strings.ToLower(event.EntityType)]
+		if !ok {
+			return fmt.Errorf("unknown event type: %s", event.EntityType)
+		}
 
 		eventTitle := eventLower
 		chunks := strings.Split(eventLower, "_")
@@ -175,8 +185,8 @@ func writeMethods(resp ResponseWrapper) error {
 	local itemValue = {null=false, valid=true} ---@type Item
 	local itemInstValue = {null=false, valid=true} ---@type ItemInst
 	local encounterValue = {} ---@type Encounter
-	local packetValue = {} ---@type Packet
-	local objectValue = {} ---@type object
+	local packetValue = {null=false, valid=true} ---@type PacketType
+	local objectValue = {null=false, valid=true} ---@type Object
 `)
 
 	valueTypes := map[string]string{
@@ -240,7 +250,7 @@ func writeMethods(resp ResponseWrapper) error {
 			if m.ReturnType != "void" {
 				if m.ReturnType == "string" {
 					w.WriteString("eq.debug(\"%s\", ")
-				} else if (m.ReturnType == "bool") {
+				} else if m.ReturnType == "bool" {
 					w.WriteString("eq.debug(\"%s\", tostring(")
 				} else {
 					w.WriteString("eq.debug(\"%d\", ")
@@ -281,7 +291,7 @@ func writeMethods(resp ResponseWrapper) error {
 			if m.ReturnType == "void" {
 				w.WriteString(fmt.Sprintf(")%s\n", paramComment))
 				continue
-			} else if (m.ReturnType == "bool") {
+			} else if m.ReturnType == "bool" {
 				w.WriteString(fmt.Sprintf(")))%s\n", paramComment))
 				continue
 			}

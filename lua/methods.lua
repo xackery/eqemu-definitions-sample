@@ -9,8 +9,8 @@ function foo()
 	local itemValue = {null=false, valid=true} ---@type Item
 	local itemInstValue = {null=false, valid=true} ---@type ItemInst
 	local encounterValue = {} ---@type Encounter
-	local packetValue = {} ---@type Packet
-	local objectValue = {} ---@type object
+	local packetValue = {null=false, valid=true} ---@type PacketType
+	local objectValue = {null=false, valid=true} ---@type Object
 	local bot = Bot() ---@type Bot
 	bot:AddBotItem(numValue, numValue) -- uint16 slot_id, uint32 item_id
 	bot:AddBotItem(numValue, numValue, numValue) -- uint16 slot_id, uint32 item_id, int16 charges
