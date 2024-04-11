@@ -169,12 +169,11 @@ func writeMethods(resp ResponseWrapper) error {
 	local stringValue = ""
 	local boolValue = false
 	local tableValue = {}
-	local functionValue = function() end
 	local mobValue = {} ---@type Mob
-	local clientValue = {} ---@type Client
-	local npcValue = {} ---@type NPC
-	local itemValue = {} ---@type Item
-	local itemInstValue = {} ---@type ItemInst
+	local clientValue = {null=false, valid=true} ---@type Client
+	local npcValue = {null=false, valid=true} ---@type NPC
+	local itemValue = {null=false, valid=true} ---@type Item
+	local itemInstValue = {null=false, valid=true} ---@type ItemInst
 	local encounterValue = {} ---@type Encounter
 	local packetValue = {} ---@type Packet
 	local objectValue = {} ---@type object
@@ -290,11 +289,11 @@ func writeConstants(resp ResponseWrapper) error {
 
 			// if c.Constant contains a number as first character
 			if c.Constant[0] >= '0' && c.Constant[0] <= '9' {
-				w.WriteString(fmt.Sprintf("\teq.debug(%s['%s'])\n", name, c.Constant))
+				w.WriteString(fmt.Sprintf("\teq.debug(string.format(\"%%d\", %s['%s']))\n", name, c.Constant))
 				continue
 			}
 
-			out := fmt.Sprintf("\teq.debug(%s.%s)\n", name, c.Constant)
+			out := fmt.Sprintf("\teq.debug(string.format(\"%%d\", %s.%s))\n", name, c.Constant)
 			_, err = w.WriteString(out)
 			if err != nil {
 				return fmt.Errorf("write %s: %w", c.Constant, err)

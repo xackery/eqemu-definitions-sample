@@ -3,12 +3,11 @@ function foo()
 	local stringValue = ""
 	local boolValue = false
 	local tableValue = {}
-	local functionValue = function() end
 	local mobValue = {} ---@type Mob
-	local clientValue = {} ---@type Client
-	local npcValue = {} ---@type NPC
-	local itemValue = {} ---@type Item
-	local itemInstValue = {} ---@type ItemInst
+	local clientValue = {null=false, valid=true} ---@type Client
+	local npcValue = {null=false, valid=true} ---@type NPC
+	local itemValue = {null=false, valid=true} ---@type Item
+	local itemInstValue = {null=false, valid=true} ---@type ItemInst
 	local encounterValue = {} ---@type Encounter
 	local packetValue = {} ---@type Packet
 	local objectValue = {} ---@type object
